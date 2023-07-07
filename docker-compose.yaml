@@ -41,6 +41,31 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
       - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
 
+  kafka_init:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka_init
+    depends_on:
+      - zookeeper
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server kafka:9092 --list
+
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic start  
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic stage2
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic stage3
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic stage4
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic stage5
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic stage6
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --replication-factor 1 --partitions 1 --topic finish
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server kafka:9092 --list
+      "
+
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -59,11 +84,13 @@ services:
       dockerfile: Dockerfile
     container_name: flow_stage1
     depends_on:
-      - kafka
+      - kafka_init
+      - postgres
     environment:
+      - STAGE_NUMBER=stage1
       - OPERATION_TYPE=add
       - BOOTSTRAP_SERVERS=kafka:9092
-      - INPUT_TOPIC=stage1
+      - INPUT_TOPIC=start
       - OUTPUT_TOPIC=stage2
       - DB_HOST=postgres
       - DB_NAME=flow_results
@@ -76,8 +103,10 @@ services:
       dockerfile: Dockerfile
     container_name: flow_stage2
     depends_on:
-      - kafka
+      - kafka_init
+      - postgres
     environment:
+      - STAGE_NUMBER=stage2
       - OPERATION_TYPE=multiply
       - BOOTSTRAP_SERVERS=kafka:9092
       - INPUT_TOPIC=stage2
@@ -89,13 +118,14 @@ services:
 
   stage3:
     build:
-      context: ./src/go_lcm
+      context: ./src/lcm
       dockerfile: Dockerfile
     container_name: flow_stage3
     depends_on:
-      - kafka
+      - kafka_init
       - postgres
     environment:
+      - STAGE_NUMBER=stage3
       - BOOTSTRAP_SERVERS=kafka:9092
       - INPUT_TOPIC=stage3
       - OUTPUT_TOPIC=stage4
@@ -106,16 +136,54 @@ services:
 
   stage4:
     build:
-      context: ./src/python_roman
+      context: ./src/average
       dockerfile: Dockerfile
     container_name: flow_stage4
     depends_on:
-      - kafka
+      - kafka_init
+      - postgres
     environment:
-      - OPERATION_TYPE=multiply
+      - STAGE_NUMBER=stage4
       - BOOTSTRAP_SERVERS=kafka:9092
+      - INPUT_TOPIC=stage4
+      - OUTPUT_TOPIC=stage5
       - DB_HOST=postgres
       - DB_NAME=flow_results
       - DB_USER=flow
       - DB_PASSWORD=uyrT1hM72cecTTu6
 
+  stage5:
+    build:
+      context: ./src/sin
+      dockerfile: Dockerfile
+    container_name: flow_stage5
+    depends_on:
+      - kafka_init
+      - postgres
+    environment:
+      - STAGE_NUMBER=stage5
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - INPUT_TOPIC=stage5
+      - OUTPUT_TOPIC=stage6
+      - DB_HOST=postgres
+      - DB_NAME=flow_results
+      - DB_USER=flow
+      - DB_PASSWORD=uyrT1hM72cecTTu6
+
+  stage6:
+    build:
+      context: ./src/squareroot
+      dockerfile: Dockerfile
+    container_name: flow_stage6
+    depends_on:
+      - kafka_init
+      - postgres
+    environment:
+      - STAGE_NUMBER=stage6
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - INPUT_TOPIC=stage6
+      - OUTPUT_TOPIC=finish
+      - DB_HOST=postgres
+      - DB_NAME=flow_results
+      - DB_USER=flow
+      - DB_PASSWORD=uyrT1hM72cecTTu6
