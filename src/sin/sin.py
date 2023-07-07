@@ -106,17 +106,6 @@ class LCMMicroservice:
         # Flush the producer tomake sure the message is sent
         self.producer.flush()
 
-    def calculate_lcm(self, numbers):
-        def gcd(a, b):
-            while b:
-                a, b = b, a % b
-            return a
-
-        lcm = numbers[0]
-        for num in numbers[1:]:
-            lcm = lcm * num // gcd(lcm, num)
-        return lcm
-
 
 if __name__ == '__main__':
     microservice = LCMMicroservice()
