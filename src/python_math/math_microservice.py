@@ -18,14 +18,16 @@ class MathMicroservice:
     def __init__(self):
 
         # Check if required environment variables are set
-        required_env_vars = ['OPERATION_TYPE', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']
+        required_env_vars = ['STAGE_NUMBER', 'OPERATION_TYPE', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'INPUT_TOPIC', 'OUTPUT_TOPIC']
         missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
         if missing_vars:
             print(f"Missing required environment variables: {', '.join(missing_vars)}")
             exit(1)
+
+        self.stage = os.environ.get('STAGE_NUMBER')
         self.bootstrap_servers = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')
-        self.input_topic = os.environ.get('INPUT_TOPIC', 'input_topic')
-        self.output_topic = os.environ.get('OUTPUT_TOPIC', 'output_topic')
+        self.input_topic = os.environ.get('INPUT_TOPIC')
+        self.output_topic = os.environ.get('OUTPUT_TOPIC')
         self.db_host = os.environ.get('DB_HOST', 'localhost')
         self.db_port = os.environ.get('DB_PORT', '5432')
         self.db_name = os.environ.get('DB_NAME')
@@ -41,11 +43,9 @@ class MathMicroservice:
     def get_operation(self):
         operation_type = os.environ.get('OPERATION_TYPE')
         if operation_type == 'add':
-            self.stage = 'stage1'
             self.operation_name = 'sum'
             return SumOperation()
         elif operation_type == 'multiply':
-            self.stage = 'stage2'
             self.operation_name = 'product'
             return MultiplyOperation()
         else:
@@ -74,6 +74,7 @@ class MathMicroservice:
                 print(f"Consumer error: {message.error()}")
                 continue
 
+            print("Got message from Kafka: %s" % (message.value()))
             # Process the received message
             data = self.deserialize_message(message.value())
             numbers = data['numbers']
@@ -112,8 +113,10 @@ class MathMicroservice:
             )
         """
         cursor.execute(create_table_query)
+
         # Insert the result into the table
         cursor.execute(f"INSERT INTO results (numbers, stage, result) VALUES (%s, %s, %s)", (json.dumps(data['numbers']), self.stage, data[self.operation_name]))
+        print("SQL Query: " + str(cursor.query))
 
         # Commit the transaction and close the connection
         conn.commit()
@@ -125,7 +128,8 @@ class MathMicroservice:
         payload = json.dumps(data)
 
         # Publish the result to the output topic
-        self.producer.produce(self.output_topic, value=payload.encode('utf-8'))
+        self.producer.produce(self.output_topic, value=payload.encode('utf-8'), )
+        print("Produce message on topic %s" % (self.output_topic))
 
         # Flush the producer tomake sure the message is sent
         self.producer.flush()
