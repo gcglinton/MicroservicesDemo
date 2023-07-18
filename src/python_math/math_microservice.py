@@ -1,5 +1,7 @@
 import os
 import json
+import logging
+from sys import stdout
 import psycopg2
 from confluent_kafka import Consumer, Producer
 
@@ -21,7 +23,7 @@ class MathMicroservice:
         required_env_vars = ['STAGE_NUMBER', 'OPERATION_TYPE', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'INPUT_TOPIC', 'OUTPUT_TOPIC']
         missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
         if missing_vars:
-            print(f"Missing required environment variables: {', '.join(missing_vars)}")
+            self.logger.critical(f"Missing required environment variables: {', '.join(missing_vars)}")
             exit(1)
 
         self.stage = os.environ.get('STAGE_NUMBER')
@@ -36,6 +38,15 @@ class MathMicroservice:
         self.operation = self.get_operation()
         self.consumer = None
         self.producer = None
+
+        # Define logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG) # set logger level
+        logFormatter = logging.Formatter\
+        ("%(asctime)s %(message)s")
+        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
+        consoleHandler.setFormatter(logFormatter)
+        self.logger.addHandler(consoleHandler)
         
         #self.operation_name = 'sum' if isinstance(self.operation, SumOperation) else 'product'
         #self.stage = 'stage1' if self.operation_name == 'sum' else 
@@ -49,7 +60,7 @@ class MathMicroservice:
             self.operation_name = 'product'
             return MultiplyOperation()
         else:
-            print(f"Invalid OPERATION_TYPE; must be 'add', or 'multiply'")
+            self.logger.critical(f"Invalid OPERATION_TYPE; must be 'add', or 'multiply'")
             exit(1)
 
     def start(self):
@@ -71,17 +82,18 @@ class MathMicroservice:
                 continue
 
             if message.error():
-                print(f"Consumer error: {message.error()}")
+                self.logger.critical(f"Consumer error: {message.error()}")
                 continue
 
-            print("Got message from Kafka: %s" % (message.value()))
+            self.logger.debug("Got message from Kafka: %s" % (message.value()))
             # Process the received message
             data = self.deserialize_message(message.value())
             numbers = data['numbers']
+
+            self.logger.debug("Calculating %s on numbers" % (self.operation_name))
             result = self.operation.calculate(numbers)
 
             # Add the result to the input JSON object with a dynamic key name
-            
             data[self.operation_name] = result
 
             # Save the result to the Postgres table
@@ -116,7 +128,7 @@ class MathMicroservice:
 
         # Insert the result into the table
         cursor.execute(f"INSERT INTO results (numbers, stage, result) VALUES (%s, %s, %s)", (json.dumps(data['numbers']), self.stage, data[self.operation_name]))
-        print("SQL Query: " + str(cursor.query))
+        self.logger.debug("SQL Query: " + str(cursor.query))
 
         # Commit the transaction and close the connection
         conn.commit()
@@ -129,7 +141,7 @@ class MathMicroservice:
 
         # Publish the result to the output topic
         self.producer.produce(self.output_topic, value=payload.encode('utf-8'), )
-        print("Produce message on topic %s" % (self.output_topic))
+        self.logger.debug("Produce message on topic %s" % (self.output_topic))
 
         # Flush the producer tomake sure the message is sent
         self.producer.flush()
