@@ -13,9 +13,17 @@ That will build all the stage containers, and run everything (Zookeeper, Kafka, 
 
 The Kafka UI is available on port 18080 and the Postgres UI is on port 18081.
 
-### Posting messages to start flow
+### Message Flow
 
-Load up the Kafka UI, to to **Topics** on the left side, then click on **start** in the list of topics presented.
+There's a `flow_stage0` service that generates messages/numbers so that the flow is somewhat automated.
+
+It can be tuned in an number of ways by adjusting environment variables; see code in order to find out how.
+
+These "inputs" are also saved to their own `inputs1` table in Postgres, along with the timestap they were submitted.
+
+### Manually Posting Messages to Start Flow
+
+Load up the Kafka UI, go to **Topics** on the left side, then click on **start** in the list of topics presented.
 
 Click on **Produce Message** in the top right corner, and in the *Value* section of the blade, enter a list of numbers, like this:
 
@@ -41,3 +49,10 @@ Also, the output of any given stage is stored in the Postgres DB. This would all
 This demo isn't complete any any means. No input validation is performed, and only the most basic of logging is being done, but it does still serve as it's purpose.
 
 There's almost certainly lots of optimization that could be done in order to modularize some of the base infrastructure of the pipeline ((de)-serializing of data, consuming from/publishing to Kafka, saving to Postgres, etc..), but that's beyond the scope of this demo.
+
+### Ideas to implement
+- Time tracking
+  - How long does it take a message to flow through a given stage
+  - How long does it take a message to flow thorugh *all* stages
+- Monitoring backlog of any given stage
+- Add graphical monitoring of things above using Grafana and Postgres
