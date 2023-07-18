@@ -20,6 +20,8 @@ class NumberGeneratorMicroservice:
         self.stage = os.environ.get('STAGE_NUMBER')
         self.bootstrap_servers = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')
         self.output_topic = os.environ.get('OUTPUT_TOPIC')
+        self.message_min = os.environ.get('MESSAGE_MIN', 1)
+        self.message_max = os.environ.get('MESSAGE_MAX', 20)
         self.sleep_min = float(os.environ.get('SLEEP_MIN', 1))
         self.sleep_max = float(os.environ.get('SLEEP_MAX', 10))
         self.numbers_min = float(os.environ.get('NUMBERS_MIN', 1000))
@@ -50,21 +52,26 @@ class NumberGeneratorMicroservice:
 
         # Start consuming messages
         while True:
+
             rand_sleep = random.uniform(self.sleep_min , self.sleep_max)
             self.logger.debug("Sleeping %d seconds" %(rand_sleep))
             time.sleep(rand_sleep)
 
-            number_count = random.randint(self.count_min, self.count_max)
-            self.logger.debug("generating %d numbers" %(number_count))
-            data = {'numbers': []}
-            for _ in range(number_count):
-                data['numbers'].append(random.uniform(self.numbers_min, self.numbers_max))
+            
+            message_count = random.randint(self.message_min, self.message_max)
+            self.logger.debug("generating %d messages" %(message_count))
+            for _ in range(message_count): 
+                number_count = random.randint(self.count_min, self.count_max)
+                self.logger.debug("generating %d numbers" %(number_count))
+                data = {'numbers': []}
+                for _ in range(number_count):
+                    data['numbers'].append(random.uniform(self.numbers_min, self.numbers_max))
 
-            # Save the result to the Postgres table
-            self.insert_into_postgres(data['numbers'])
+                # Save the result to the Postgres table
+                self.insert_into_postgres(data['numbers'])
 
-            # Publish the updated JSON object to the output topic
-            self.publish_result(data)
+                # Publish the updated JSON object to the output topic
+                self.publish_result(data)
 
     def insert_into_postgres(self, numbers):
         # Connect to the Postgres database
@@ -99,7 +106,7 @@ class NumberGeneratorMicroservice:
 
         # Publish the result to the output topic
         self.producer.produce(self.output_topic, value=payload.encode('utf-8'))
-        self.logger.debug("Produce message on topic %s" % (self.output_topic))
+        self.logger.debug("Produce message on topic '%s': %s" % (self.output_topic, payload))
 
         # Flush the producer tomake sure the message is sent
         self.producer.flush()
