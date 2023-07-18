@@ -5,6 +5,7 @@ services:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
     hostname: zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -15,6 +16,7 @@ services:
     image: confluentinc/cp-kafka:latest
     container_name: kafka
     hostname: kafka
+    restart: unless-stopped
     depends_on:
       - zookeeper
     #ports:
@@ -32,6 +34,7 @@ services:
   kafka_ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka_ui
+    restart: unless-stopped
     depends_on:
       - kafka
     ports:
@@ -80,7 +83,7 @@ services:
 
   postgres_ui:
     container_name: postgres_ui
-    restart: always
+    restart: unless-stopped
     image: sosedoff/pgweb
     ports: 
       - 18081:8081
@@ -112,6 +115,7 @@ services:
       context: ./src/python_math
       dockerfile: Dockerfile
     container_name: flow_stage1
+    restart: unless-stopped
     depends_on:
       - kafka_init
       - postgres
@@ -131,6 +135,7 @@ services:
       context: ./src/python_math
       dockerfile: Dockerfile
     container_name: flow_stage2
+    restart: unless-stopped
     depends_on:
       - kafka_init
       - postgres
@@ -150,6 +155,7 @@ services:
       context: ./src/lcm
       dockerfile: Dockerfile
     container_name: flow_stage3
+    restart: unless-stopped
     depends_on:
       - kafka_init
       - postgres
@@ -168,6 +174,7 @@ services:
       context: ./src/average
       dockerfile: Dockerfile
     container_name: flow_stage4
+    restart: unless-stopped
     depends_on:
       - kafka_init
       - postgres
@@ -186,6 +193,7 @@ services:
       context: ./src/sin
       dockerfile: Dockerfile
     container_name: flow_stage5
+    restart: unless-stopped
     depends_on:
       - kafka_init
       - postgres
@@ -204,6 +212,7 @@ services:
       context: ./src/squareroot
       dockerfile: Dockerfile
     container_name: flow_stage6
+    restart: unless-stopped
     depends_on:
       - kafka_init
       - postgres
