@@ -89,6 +89,24 @@ services:
     depends_on:
       - postgres
 
+  stage0:
+    build:
+      context: ./src/numbergenerator
+      dockerfile: Dockerfile
+    container_name: flow_stage0
+    restart: unless-stopped
+    depends_on:
+      - kafka_init
+      - postgres
+    environment:
+      - STAGE_NUMBER=stage0
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - OUTPUT_TOPIC=start
+      - DB_HOST=postgres
+      - DB_NAME=flow_results
+      - DB_USER=flow
+      - DB_PASSWORD=uyrT1hM72cecTTu6
+
   stage1:
     build:
       context: ./src/python_math
