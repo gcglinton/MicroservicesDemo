@@ -7,7 +7,7 @@ It was built in order to show what's possible, and provide a skeleton framework 
 
 ## Usage
 
-Running the demo is as simple as cloning the repo, ensuring you're got Docker and docker-compose, and then running `docker-compose up -d --build`.
+Running the demo is as simple as cloning the repo, ensuring you're got Docker and the Compose Plugin, and then running `docker compose up -d --build`.
 
 That will build all the stage containers, and run everything (Zookeeper, Kafka, Postgres, UIs, and stages).
 
