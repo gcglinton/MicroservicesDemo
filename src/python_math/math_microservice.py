@@ -67,12 +67,16 @@ class MathMicroservice:
         # Create a Kafka consumer
         self.consumer = Consumer({
             'bootstrap.servers': self.bootstrap_servers,
-            'group.id': self.operation_name + '_microservice'
+            'group.id': self.operation_name + '_microservice',
+            'client.id': self.operation_name + '_microservice',
         })
         self.consumer.subscribe([self.input_topic])
 
         # Create a Kafka producer
-        self.producer = Producer({'bootstrap.servers': self.bootstrap_servers})
+        self.producer = Producer({
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': self.operation_name + '_microservice'
+        })
 
         # Start consuming messages
         while True:

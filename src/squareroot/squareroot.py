@@ -42,12 +42,16 @@ class SqrtMicroservice:
         # Create a Kafka consumer
         self.consumer = Consumer({
             'bootstrap.servers': self.bootstrap_servers,
-            'group.id': 'sqrt_microservice'
+            'group.id': 'sqrt_microservice',
+            'client.id': 'sqrt_microservice'
         })
         self.consumer.subscribe([self.input_topic])
 
         # Create a Kafka producer
-        self.producer = Producer({'bootstrap.servers': self.bootstrap_servers})
+        self.producer = Producer({
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': 'sqrt_microservice'
+        })
 
         # Start consuming messages
         while True:

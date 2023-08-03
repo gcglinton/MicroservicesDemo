@@ -41,12 +41,16 @@ class AverageMicroservice:
         # Create a Kafka consumer
         self.consumer = Consumer({
             'bootstrap.servers': self.bootstrap_servers,
-            'group.id': 'average_microservice'
+            'group.id': 'average_microservice',
+            'client.id': 'average_microservice'
         })
         self.consumer.subscribe([self.input_topic])
 
         # Create a Kafka producer
-        self.producer = Producer({'bootstrap.servers': self.bootstrap_servers})
+        self.producer = Producer({
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': 'average_microservice'
+        })
 
         # Start consuming messages
         while True:

@@ -42,12 +42,16 @@ class LCMMicroservice:
         # Create a Kafka consumer
         self.consumer = Consumer({
             'bootstrap.servers': self.bootstrap_servers,
-            'group.id': 'sin_microservice'
+            'group.id': 'sin_microservice',
+            'client.id': 'sin_microservice'
         })
         self.consumer.subscribe([self.input_topic])
 
         # Create a Kafka producer
-        self.producer = Producer({'bootstrap.servers': self.bootstrap_servers})
+        self.producer = Producer({
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': 'sin_microservice'
+        })
 
         # Start consuming messages
         while True:

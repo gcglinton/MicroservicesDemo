@@ -48,7 +48,10 @@ class NumberGeneratorMicroservice:
 
     def start(self):
         # Create a Kafka producer
-        self.producer = Producer({'bootstrap.servers': self.bootstrap_servers})
+        self.producer = Producer({
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': 'generator_microservice'
+        })
 
         # Start consuming messages
         while True:
