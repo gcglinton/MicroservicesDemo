@@ -21,6 +21,17 @@ It can be tuned in an number of ways by adjusting environment variables; see cod
 
 These "inputs" are also saved to their own `inputs1` table in Postgres, along with the timestap they were submitted.
 
+### Azure
+
+You can use Azure's native services for both Postgres and Kafka, to do things a little more... "cloudy".  
+The microservices themselves can (mostly likely) run on Container Instances, Container Apps, Function Apps, Azure Kubernetes Services, and possibly even App Services. You could even do a combination to see how they each perform, and inter-connect.
+
+For Postgres, your choices are **Azure Database for PostgreSQL**, or **Azure Cosmos DB for PostgreSQL Cluster**. The latter should be more than enough for a demo.  
+You'd simply replace the relevant envars (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`) to connect to the cloud instance.
+
+For Kafka, you'd have to use **Azure Event Hubs**, running at least the *Standard* tier in order to get the Kafka-compatible endpoints.  
+Here you'll change the `BOOTSTRAP_SERVERS` envar to be the *Host name* of your Event Hubs Namespace, making sure to use port 9093: `<EventHubNamespace>.servicebus.windows.net:9093`, and add the extra envar `EVENTHUB_CONNECTIONSTRING`, which contains the Event Hubs' *Shared access policy*'s *Connection string*.
+
 ### Manually Posting Messages to Start Flow
 
 Load up the Kafka UI, go to **Topics** on the left side, then click on **start** in the list of topics presented.
