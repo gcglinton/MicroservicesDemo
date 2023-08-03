@@ -7,6 +7,13 @@ from confluent_kafka import Consumer, Producer
 
 class LCMMicroservice:
     def __init__(self):
+        # Define logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG) # set logger level
+        logFormatter = logging.Formatter("%(asctime)s %(message)s")
+        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
+        consoleHandler.setFormatter(logFormatter)
+        self.logger.addHandler(consoleHandler)
 
         # Check if required environment variables are set
         required_env_vars = ['STAGE_NUMBER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'INPUT_TOPIC', 'OUTPUT_TOPIC']
@@ -25,32 +32,41 @@ class LCMMicroservice:
         self.db_user = os.environ.get('DB_USER')
         self.db_password = os.environ.get('DB_PASSWORD')
         self.consumer = None
-        self.producer = None
+        self.consumer_config = {
+            'bootstrap.servers': self.bootstrap_servers,
+            'group.id': f'{self.stage}.lcm_microservice-consumer',
+            'client.id': f'{self.stage}.lcm_microservice-consumer',
+        }
 
-        # Define logger
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG) # set logger level
-        logFormatter = logging.Formatter\
-        ("%(asctime)s %(message)s")
-        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
-        consoleHandler.setFormatter(logFormatter)
-        self.logger.addHandler(consoleHandler)
+        self.producer = None
+        self.producer_config = {
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': f'{self.stage}.lcm_microservice-producer',
+        }
+
+        #Make it so we can use Azure Event Hub.
+        if 'servicebus.windows.net' in self.bootstrap_servers:
+            if not os.environ.get('EVENTHUB_CONNECTIONSTRING'):
+                self.logger.critical(f"Missing required environment variables: EVENTHUB_CONNECTIONSTRING")
+                exit(1)
+
+            self.producer_config['security.protocol'] = self.consumer_config['security.protocol'] = 'SASL_SSL'
+            self.producer_config['sasl.mechanism'] = self.consumer_config['sasl.mechanism'] = 'PLAIN'
+            self.producer_config['sasl.username'] = self.consumer_config['sasl.username'] = '$ConnectionString'
+            self.producer_config['sasl.password'] = self.consumer_config['sasl.password'] = os.environ.get('EVENTHUB_CONNECTIONSTRING')
+
+            #self.consumer_config['default.topic.config'] = {'auto.offset.reset': 'latest'}
+            self.producer_config['request.timeout.ms'] = 60000
+            self.consumer_config['session.timeout.ms'] = 60000
 
 
     def start(self):
         # Create a Kafka consumer
-        self.consumer = Consumer({
-            'bootstrap.servers': self.bootstrap_servers,
-            'group.id': 'lcm_microservice',
-            'client.id': 'lcm_microservice'
-        })
+        self.consumer = Consumer(self.consumer_config)
         self.consumer.subscribe([self.input_topic])
 
         # Create a Kafka producer
-        self.producer = Producer({
-            'bootstrap.servers': self.bootstrap_servers,
-            'client.id': 'lcm_microservice'
-        })
+        self.producer = Producer(self.producer_config)
 
         # Start consuming messages
         while True:

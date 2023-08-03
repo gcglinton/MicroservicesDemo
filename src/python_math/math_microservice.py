@@ -18,6 +18,13 @@ class MultiplyOperation:
 
 class MathMicroservice:
     def __init__(self):
+        # Define logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG) # set logger level
+        logFormatter = logging.Formatter("%(asctime)s %(message)s")
+        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
+        consoleHandler.setFormatter(logFormatter)
+        self.logger.addHandler(consoleHandler)
 
         # Check if required environment variables are set
         required_env_vars = ['STAGE_NUMBER', 'OPERATION_TYPE', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'INPUT_TOPIC', 'OUTPUT_TOPIC']
@@ -37,19 +44,36 @@ class MathMicroservice:
         self.db_password = os.environ.get('DB_PASSWORD')
         self.operation = self.get_operation()
         self.consumer = None
-        self.producer = None
+        self.consumer_config = {
+            'bootstrap.servers': self.bootstrap_servers,
+            'group.id': f'{self.stage}.math_{self.operation_name}_microservice-consumer',
+            'client.id': f'{self.stage}.math_{self.operation_name}_microservice-consumer',
+        }
 
-        # Define logger
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG) # set logger level
-        logFormatter = logging.Formatter\
-        ("%(asctime)s %(message)s")
-        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
-        consoleHandler.setFormatter(logFormatter)
-        self.logger.addHandler(consoleHandler)
-        
+        self.producer = None
+        self.producer_config = {
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': f'{self.stage}.math_{self.operation_name}_microservice-producer',
+        }
+
+        #Make it so we can use Azure Event Hub.
+        if 'servicebus.windows.net' in self.bootstrap_servers:
+            if not os.environ.get('EVENTHUB_CONNECTIONSTRING'):
+                self.logger.critical(f"Missing required environment variables: EVENTHUB_CONNECTIONSTRING")
+                exit(1)
+
+            self.producer_config['security.protocol'] = self.consumer_config['security.protocol'] = 'SASL_SSL'
+            self.producer_config['sasl.mechanism'] = self.consumer_config['sasl.mechanism'] = 'PLAIN'
+            self.producer_config['sasl.username'] = self.consumer_config['sasl.username'] = '$ConnectionString'
+            self.producer_config['sasl.password'] = self.consumer_config['sasl.password'] = os.environ.get('EVENTHUB_CONNECTIONSTRING')
+
+            #self.consumer_config['default.topic.config'] = {'auto.offset.reset': 'latest'}
+            self.producer_config['request.timeout.ms'] = 60000
+            self.consumer_config['session.timeout.ms'] = 60000
+
         #self.operation_name = 'sum' if isinstance(self.operation, SumOperation) else 'product'
         #self.stage = 'stage1' if self.operation_name == 'sum' else 
+
 
     def get_operation(self):
         operation_type = os.environ.get('OPERATION_TYPE')
@@ -65,18 +89,11 @@ class MathMicroservice:
 
     def start(self):
         # Create a Kafka consumer
-        self.consumer = Consumer({
-            'bootstrap.servers': self.bootstrap_servers,
-            'group.id': self.operation_name + '_microservice',
-            'client.id': self.operation_name + '_microservice',
-        })
+        self.consumer = Consumer(self.consumer_config)
         self.consumer.subscribe([self.input_topic])
 
         # Create a Kafka producer
-        self.producer = Producer({
-            'bootstrap.servers': self.bootstrap_servers,
-            'client.id': self.operation_name + '_microservice'
-        })
+        self.producer = Producer(self.producer_config)
 
         # Start consuming messages
         while True:

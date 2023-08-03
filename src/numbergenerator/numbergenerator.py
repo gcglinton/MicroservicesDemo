@@ -8,7 +8,13 @@ from sys import stdout
 from confluent_kafka import Consumer, Producer
 
 class NumberGeneratorMicroservice:
-    def __init__(self):
+    def __init__(self):# Define logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG) # set logger level
+        logFormatter = logging.Formatter("%(asctime)s %(message)s")
+        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
+        consoleHandler.setFormatter(logFormatter)
+        self.logger.addHandler(consoleHandler)
 
         # Check if required environment variables are set
         required_env_vars = ['STAGE_NUMBER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'OUTPUT_TOPIC']
@@ -33,25 +39,29 @@ class NumberGeneratorMicroservice:
         self.db_name = os.environ.get('DB_NAME')
         self.db_user = os.environ.get('DB_USER')
         self.db_password = os.environ.get('DB_PASSWORD')
-
         self.producer = None
+        self.producer_config = {
+            'bootstrap.servers': self.bootstrap_servers,
+            'client.id': f'{self.stage}.numbergenerator_microservice-producer',
+        }
 
-        # Define logger
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG) # set logger level
-        logFormatter = logging.Formatter\
-        ("%(asctime)s %(message)s")
-        consoleHandler = logging.StreamHandler(stdout) #set streamhandler to stdout
-        consoleHandler.setFormatter(logFormatter)
-        self.logger.addHandler(consoleHandler)
+        #Make it so we can use Azure Event Hub.
+        if 'servicebus.windows.net' in self.bootstrap_servers:
+            if not os.environ.get('EVENTHUB_CONNECTIONSTRING'):
+                self.logger.critical(f"Missing required environment variables: EVENTHUB_CONNECTIONSTRING")
+                exit(1)
+
+            self.producer_config['security.protocol'] = 'SASL_SSL'
+            self.producer_config['sasl.mechanism'] = 'PLAIN'
+            #producer_config['sasl.username'] = consumer_config['sasl.username'] = os.getenv('EVENTHUB_USERNAME')
+            #producer_config['sasl.password'] = consumer_config['sasl.password'] = os.getenv('EVENTHUB_CONNECTIONSTRING')
+            self.producer_config['sasl.username'] = '$ConnectionString'
+            self.producer_config['sasl.password'] = os.environ.get('EVENTHUB_CONNECTIONSTRING')
 
 
     def start(self):
         # Create a Kafka producer
-        self.producer = Producer({
-            'bootstrap.servers': self.bootstrap_servers,
-            'client.id': 'generator_microservice'
-        })
+        self.producer = Producer(self.producer_config)
 
         # Start consuming messages
         while True:
